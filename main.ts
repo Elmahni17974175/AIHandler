@@ -106,6 +106,28 @@ namespace msmAIHandler {
     }
 
     // =========================================================
+    // GETTERS (pour reproduire la boucle “comme sur l’image”)
+    // =========================================================
+
+    //% block="ID_CUBE"
+    //% group="Réglages"
+    export function ID_CUBE_get(): number {
+        return ID_CUBE
+    }
+
+    //% block="Y_APPROCHE"
+    //% group="Réglages"
+    export function Y_APPROCHE_get(): number {
+        return Y_APPROCHE
+    }
+
+    //% block="SEUIL_VALIDATION"
+    //% group="Réglages"
+    export function SEUIL_VALIDATION_get(): number {
+        return SEUIL_VALIDATION
+    }
+
+    // =========================================================
     // CAPTEURS LIGNE
     // =========================================================
 
@@ -208,8 +230,18 @@ namespace msmAIHandler {
     }
 
     // =========================================================
-    // VISION : validation stable + approche
+    // VISION (couleur) : blocs “comme sur l’image”
     // =========================================================
+
+    /**
+     * Alias pédagogique : "Update and get results"
+     * (On garde aussi majCamera() pour compatibilité avec ton code)
+     */
+    //% block="Update and get results"
+    //% group="Vision (couleur)"
+    export function updateCamera(): void {
+        wondercam.UpdateResult()
+    }
 
     //% block="mettre à jour caméra WonderCam"
     //% group="Vision (couleur)"
@@ -217,18 +249,31 @@ namespace msmAIHandler {
         wondercam.UpdateResult()
     }
 
-    /**
-     * Détection stable : couleur id détectée + X dans [X_MIN..X_MAX] pendant N validations.
-     */
-    //% block="cube couleur détecté de façon stable ?"
+    //% block="Is color ID %id detected ?"
     //% group="Vision (couleur)"
-    export function cubeDetecteStable(): boolean {
-        const detecte = wondercam.isDetectedColorId(ID_CUBE)
-        const x = wondercam.XOfColorId(wondercam.Options.Pos_X, ID_CUBE)
+    export function cubeDetecte(id: number): boolean {
+        return wondercam.isDetectedColorId(id)
+    }
+
+    //% block="Y of color ID %id"
+    //% group="Vision (couleur)"
+    export function yCube(id: number): number {
+        return wondercam.XOfColorId(wondercam.Options.Pos_Y, id)
+    }
+
+    /**
+     * Version GÉNÉRIQUE : détection stable pour n’importe quel ID + seuil
+     * (utile pour reproduire exactement la boucle de ton image)
+     */
+    //% block="détection stable couleur ID %id avec seuil %seuil"
+    //% group="Vision (couleur)"
+    export function detectionStableCouleur(id: number, seuil: number): boolean {
+        const detecte = wondercam.isDetectedColorId(id)
+        const x = wondercam.XOfColorId(wondercam.Options.Pos_X, id)
 
         if (detecte && x >= X_MIN && x <= X_MAX) {
             compteurValidation += 1
-            if (compteurValidation > SEUIL_VALIDATION) {
+            if (compteurValidation > seuil) {
                 compteurValidation = 0
                 return true
             }
@@ -236,6 +281,15 @@ namespace msmAIHandler {
             compteurValidation = 0
         }
         return false
+    }
+
+    /**
+     * Version “réglages internes” (comme tu l’avais)
+     */
+    //% block="cube couleur détecté de façon stable ?"
+    //% group="Vision (couleur)"
+    export function cubeDetecteStable(): boolean {
+        return detectionStableCouleur(ID_CUBE, SEUIL_VALIDATION)
     }
 
     //% block="approcher le cube (jusqu'à Y approche)"
@@ -313,13 +367,25 @@ namespace msmAIHandler {
     }
 
     // =========================================================
-    // MISSION : destination + cycle complet
+    // MISSION : blocs demandés (nePortePasCube + bip) + existants
     // =========================================================
+
+    //% block="ne porte pas de cube ?"
+    //% group="Mission"
+    export function nePortePasCube(): boolean {
+        return modeMission == 0
+    }
 
     //% block="porte un cube ?"
     //% group="Mission"
     export function porteUnCube(): boolean {
         return modeMission == 1
+    }
+
+    //% block="jouer bip"
+    //% group="Mission"
+    export function jouerBip(): void {
+        music.play(music.tonePlayable(262, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
     }
 
     //% block="gérer la destination (stop, déposer si besoin, demi-tour)"
@@ -363,7 +429,7 @@ namespace msmAIHandler {
 
         // Détection stable + approche + attraper (seulement si on ne porte rien)
         if (modeMission == 0 && cubeDetecteStable()) {
-            music.play(music.tonePlayable(262, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
+            jouerBip()
             approcherCube()
             attraperCube()
         }
