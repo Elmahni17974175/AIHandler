@@ -1,6 +1,6 @@
 {
   "name": "msm-ai-handler",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "MSM AI Handler - DaDa:bit + WonderCam via dadabit (blocs pédagogiques: ligne, vision, bras/pince, mission).",
   "license": "MIT",
   "dependencies": {
