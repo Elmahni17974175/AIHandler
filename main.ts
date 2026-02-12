@@ -199,7 +199,7 @@ namespace msmAIHandler {
     // SUIVI DE LIGNE (1 bloc “étape”)
     // =========================================================
 
-    //% block="suivi de ligne (1 étape)"
+    //% block="suivi de ligne"
     //% group="Suivi de ligne"
     export function suiviDeLigne(): void {
         if (capteur2 && capteur3) {
@@ -237,7 +237,7 @@ namespace msmAIHandler {
      * Alias pédagogique : "Update and get results"
      * (On garde aussi majCamera() pour compatibilité avec ton code)
      */
-    //% block="Update and get results"
+    //% block="Mettre a jour camera"
     //% group="Vision (couleur)"
     export function updateCamera(): void {
         wondercam.UpdateResult()
