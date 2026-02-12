@@ -1,6 +1,6 @@
 /**
  * MSM AI Handler — Extension MakeCode
- * DaDa:bit + WonderCam (via dadabit) 
+ * DaDa:bit + WonderCam (via dadabit)  
  *
  * IMPORTANT :
  * - Pas de basic.forever() ici (l’élève écrit la boucle dans son programme)
