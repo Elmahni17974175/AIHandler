@@ -60,7 +60,7 @@ namespace msmAIHandler {
     // RÉGLAGES
     // =========================================================
 
-    //% block="régler vitesses | tout droit %vTD | correction %vC | petite %vP"
+    //% block="régler vitesses | tout droit %vTD | Gcorect %vC | Pcorrect %vP"
     //% group="Réglages"
     export function reglerVitesses(vTD: number, vC: number, vP: number): void {
         vitesseToutDroit = vTD
@@ -88,14 +88,14 @@ namespace msmAIHandler {
         PINCE_FERMEE = pf
     }
 
-    //% block="régler temps | mouvement (ms) %tm | attente (ms) %ta"
+    //% block="régler Duree | mouvement (ms) %tm | attente (ms) %ta"
     //% group="Réglages"
     export function reglerTemps(tm: number, ta: number): void {
         TEMPS_MOUVEMENT = tm
         TEMPS_ATTENTE = ta
     }
 
-    //% block="réinitialiser la mission (ne porte rien)"
+    //% block="initialiser la mission "
     //% group="Réglages"
     export function resetMission(): void {
         modeMission = 0
