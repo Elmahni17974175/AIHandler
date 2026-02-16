@@ -88,7 +88,7 @@ namespace msmAIHandler {
         PINCE_FERMEE = pf
     }
 
-    //% block="régler Duree | mouvement (ms) %tm | attente (ms) %ta"
+    //% block="régler Durée | mouvement (ms) %tm | attente (ms) %ta"
     //% group="Réglages"
     export function reglerTemps(tm: number, ta: number): void {
         TEMPS_MOUVEMENT = tm
@@ -264,7 +264,7 @@ namespace msmAIHandler {
         return false
     }
 
-    //% block="cube détecté de façon stable ? (réglages)"
+    //% block="cube détecté de façon stable ? "
     //% group="Vision (couleur)"
     export function cubeDetecteStable(): boolean {
         return detectionStableCouleur(ID_CUBE, SEUIL_VALIDATION)
