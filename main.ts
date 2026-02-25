@@ -1,6 +1,9 @@
 /**
  * MSM AI Handler — Extension MakeCode
- * DaDa:bit + WonderCam (via dadabit)   
+ * DaDa:bit + WonderCam (via dadabit)
+ *
+ * 4 couleurs WonderCam (IDs confirmés) :
+ * Rouge=1, Vert=2, Bleu=3, Jaune=4
  *
  * IMPORTANT :
  * - Pas de basic.forever() ici (l’élève écrit la boucle dans son programme)
@@ -22,12 +25,18 @@ namespace msmAIHandler {
     let vitesseCorrection = 44
     let petiteVitesse = 33
 
-    // vision
+    // vision (réglages communs)
     let ID_CUBE = 1
     let X_MIN = 80
     let X_MAX = 240
     let Y_APPROCHE = 237
     let SEUIL_VALIDATION = 8
+
+    // compteurs stabilité (1 par couleur)
+    let compteurStableR = 0
+    let compteurStableV = 0
+    let compteurStableB = 0
+    let compteurStableJ = 0
 
     // bras/pince
     let BRAS_HAUT = -60
@@ -40,7 +49,6 @@ namespace msmAIHandler {
     // mission
     // 0 = recherche/ramassage, 1 = transport (porte un cube)
     let modeMission = 0
-    let compteurValidation = 0
 
     // =========================================================
     // INIT
@@ -54,6 +62,8 @@ namespace msmAIHandler {
         wondercam.ChangeFunc(wondercam.Functions.ColorDetect)
         brasAuRepos()
         basic.pause(500)
+        resetStabilites()
+        modeMission = 0
     }
 
     // =========================================================
@@ -76,7 +86,7 @@ namespace msmAIHandler {
         X_MAX = xmax
         Y_APPROCHE = y
         SEUIL_VALIDATION = seuil
-        compteurValidation = 0
+        resetStabilites()
     }
 
     //% block="régler bras/pince | bras haut %bh | bras bas %bb | pince ouverte %po | pince fermée %pf"
@@ -95,11 +105,27 @@ namespace msmAIHandler {
         TEMPS_ATTENTE = ta
     }
 
-    //% block="initialiser la mission "
+    //% block="initialiser la mission"
     //% group="Réglages"
     export function resetMission(): void {
         modeMission = 0
-        compteurValidation = 0
+        resetStabilites()
+    }
+
+    // =========================================================
+    // OUTILS INTERNES
+    // =========================================================
+
+    function resetStabilites(): void {
+        compteurStableR = 0
+        compteurStableV = 0
+        compteurStableB = 0
+        compteurStableJ = 0
+    }
+
+    function xDansFenetre(id: number): boolean {
+        const x = wondercam.XOfColorId(wondercam.Options.Pos_X, id)
+        return x >= X_MIN && x <= X_MAX
     }
 
     // =========================================================
@@ -193,7 +219,7 @@ namespace msmAIHandler {
     }
 
     // =========================================================
-    // SUIVI DE LIGNE 
+    // SUIVI DE LIGNE
     // =========================================================
 
     //% block="suivre la ligne"
@@ -206,13 +232,11 @@ namespace msmAIHandler {
         } else if (capteur3 && capteur4 && (!capteur1 && !capteur2)) {
             corrigerADroite(vitesseCorrection)
         } else if (capteur2 && !capteur1 && (!capteur3 && !capteur4)) {
-            // petite correction gauche
             dadabit.setLego360Servo(1, dadabit.Oriention.Counterclockwise, vitesseCorrection)
             dadabit.setLego360Servo(2, dadabit.Oriention.Clockwise, petiteVitesse)
             dadabit.setLego360Servo(3, dadabit.Oriention.Counterclockwise, vitesseCorrection)
             dadabit.setLego360Servo(4, dadabit.Oriention.Clockwise, petiteVitesse)
         } else if (capteur3 && !capteur1 && (!capteur2 && !capteur4)) {
-            // petite correction droite
             dadabit.setLego360Servo(1, dadabit.Oriention.Counterclockwise, petiteVitesse)
             dadabit.setLego360Servo(2, dadabit.Oriention.Clockwise, vitesseCorrection)
             dadabit.setLego360Servo(3, dadabit.Oriention.Counterclockwise, petiteVitesse)
@@ -240,31 +264,147 @@ namespace msmAIHandler {
         return wondercam.isDetectedColorId(id)
     }
 
+    //% block="position X de la couleur ID %id"
+    //% group="Vision (couleur)"
+    export function xCube(id: number): number {
+        return wondercam.XOfColorId(wondercam.Options.Pos_X, id)
+    }
+
     //% block="position Y de la couleur ID %id"
     //% group="Vision (couleur)"
     export function yCube(id: number): number {
         return wondercam.XOfColorId(wondercam.Options.Pos_Y, id)
     }
 
+    //% block="Couleur cube"
+    //% group="Vision (couleur)"
+    export enum CouleurCube {
+        //% block="rouge"
+        Rouge = 1,
+        //% block="vert"
+        Vert = 2,
+        //% block="bleu"
+        Bleu = 3,
+        //% block="jaune"
+        Jaune = 4
+    }
+
+    /**
+     * Détection stable 4 couleurs (1 compteur par couleur)
+     */
+
+    //% block="détection stable | %c | seuil %seuil"
+    //% group="Vision (couleur)"
+    export function detectionStableCouleur4(c: CouleurCube, seuil: number): boolean {
+        const id = c as number
+        const detecte = wondercam.isDetectedColorId(id)
+
+        let compteur = 0
+        if (c == CouleurCube.Rouge) compteur = compteurStableR
+        else if (c == CouleurCube.Vert) compteur = compteurStableV
+        else if (c == CouleurCube.Bleu) compteur = compteurStableB
+        else compteur = compteurStableJ
+
+        if (detecte && xDansFenetre(id)) {
+            compteur += 1
+        } else {
+            compteur = 0
+        }
+
+        let ok = false
+        if (compteur > seuil) {
+            compteur = 0
+            ok = true
+        }
+
+        if (c == CouleurCube.Rouge) compteurStableR = compteur
+        else if (c == CouleurCube.Vert) compteurStableV = compteur
+        else if (c == CouleurCube.Bleu) compteurStableB = compteur
+        else compteurStableJ = compteur
+
+        return ok
+    }
+
+    /**
+     * NOUVEAU BLOC :
+     * détecte la première couleur stable parmi (rouge, vert, bleu, jaune)
+     * retourne 0 si aucune.
+     */
+
+    //% block="couleur stable détectée ? (seuil %seuil)"
+    //% group="Vision (couleur)"
+    export function couleurStableDetectee(seuil: number): CouleurCube {
+        // ROUGE
+        if (wondercam.isDetectedColorId(1) && xDansFenetre(1)) {
+            compteurStableR += 1
+        } else {
+            compteurStableR = 0
+        }
+        if (compteurStableR > seuil) {
+            resetStabilites()
+            return CouleurCube.Rouge
+        }
+
+        // VERT
+        if (wondercam.isDetectedColorId(2) && xDansFenetre(2)) {
+            compteurStableV += 1
+        } else {
+            compteurStableV = 0
+        }
+        if (compteurStableV > seuil) {
+            resetStabilites()
+            return CouleurCube.Vert
+        }
+
+        // BLEU
+        if (wondercam.isDetectedColorId(3) && xDansFenetre(3)) {
+            compteurStableB += 1
+        } else {
+            compteurStableB = 0
+        }
+        if (compteurStableB > seuil) {
+            resetStabilites()
+            return CouleurCube.Bleu
+        }
+
+        // JAUNE
+        if (wondercam.isDetectedColorId(4) && xDansFenetre(4)) {
+            compteurStableJ += 1
+        } else {
+            compteurStableJ = 0
+        }
+        if (compteurStableJ > seuil) {
+            resetStabilites()
+            return CouleurCube.Jaune
+        }
+
+        return 0
+    }
+
+    // Compatibilité : ancienne fonction (ID + seuil)
     //% block="détection stable | couleur ID %id | seuil %seuil"
     //% group="Vision (couleur)"
     export function detectionStableCouleur(id: number, seuil: number): boolean {
-        const detecte = wondercam.isDetectedColorId(id)
-        const x = wondercam.XOfColorId(wondercam.Options.Pos_X, id)
+        if (id == 1) return detectionStableCouleur4(CouleurCube.Rouge, seuil)
+        if (id == 2) return detectionStableCouleur4(CouleurCube.Vert, seuil)
+        if (id == 3) return detectionStableCouleur4(CouleurCube.Bleu, seuil)
+        if (id == 4) return detectionStableCouleur4(CouleurCube.Jaune, seuil)
 
-        if (detecte && x >= X_MIN && x <= X_MAX) {
-            compteurValidation += 1
-            if (compteurValidation > seuil) {
-                compteurValidation = 0
+        // IDs hors 1..4 : stabilité simple (compteur réutilisé)
+        const detecte = wondercam.isDetectedColorId(id)
+        if (detecte && xDansFenetre(id)) {
+            compteurStableR += 1
+            if (compteurStableR > seuil) {
+                compteurStableR = 0
                 return true
             }
         } else {
-            compteurValidation = 0
+            compteurStableR = 0
         }
         return false
     }
 
-    //% block="cube détecté de façon stable ? "
+    //% block="cube détecté de façon stable ?"
     //% group="Vision (couleur)"
     export function cubeDetecteStable(): boolean {
         return detectionStableCouleur(ID_CUBE, SEUIL_VALIDATION)
@@ -353,8 +493,6 @@ namespace msmAIHandler {
     export function nePortePasCube(): boolean {
         return modeMission == 0
     }
-
- 
 
     //% block="bip (signal sonore)"
     //% group="Mission"
