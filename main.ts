@@ -3,7 +3,7 @@
  * DaDa:bit + WonderCam (via dadabit)
  *
  * 4 couleurs WonderCam (IDs confirmés) :
- * Rouge=1, Vert=2, Bleu=3, Jaune=4
+ * Rouge=1, Vert=2, Bleu=3, Jaune=4 
  *
  * IMPORTANT :
  * - Pas de basic.forever() ici (l’élève écrit la boucle dans son programme)
