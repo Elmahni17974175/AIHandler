@@ -3,7 +3,7 @@
  * DaDa:bit + WonderCam (via dadabit)
  *
  * 4 couleurs WonderCam (IDs confirmés) :
- * Rouge=1, Vert=2, Bleu=3, Jaune=4 
+ * Rouge=1, Vert=2, Bleu=3, Jaune=4
  *
  * IMPORTANT :
  * - Pas de basic.forever() ici (l’élève écrit la boucle dans son programme)
@@ -12,6 +12,7 @@
 //% color=#00BCD4 icon="\uf1b9" block="MSM AI Handler"
 //% groups='["Init","Réglages","Capteurs ligne","Mouvements","Suivi de ligne","Vision (couleur)","Bras & Pince","Mission"]'
 namespace msmAIHandler {
+
     // =========================================================
     // ÉTAT INTERNE
     // =========================================================
@@ -51,6 +52,62 @@ namespace msmAIHandler {
     let modeMission = 0
 
     // =========================================================
+    // OUTILS INTERNES
+    // =========================================================
+
+    function resetStabilites(): void {
+        compteurStableR = 0
+        compteurStableV = 0
+        compteurStableB = 0
+        compteurStableJ = 0
+    }
+
+    function xDansFenetre(id: number): boolean {
+        const x = wondercam.XOfColorId(wondercam.Options.Pos_X, id)
+        return x >= X_MIN && x <= X_MAX
+    }
+
+    function detectionStableId(id: number, seuil: number): boolean {
+        // compteur selon couleur (1..4)
+        let compteur = 0
+        if (id == 1) compteur = compteurStableR
+        else if (id == 2) compteur = compteurStableV
+        else if (id == 3) compteur = compteurStableB
+        else if (id == 4) compteur = compteurStableJ
+        else compteur = 0 // hors scope (non géré ici)
+
+        if (wondercam.isDetectedColorId(id) && xDansFenetre(id)) {
+            compteur += 1
+        } else {
+            compteur = 0
+        }
+
+        let ok = false
+        if (compteur > seuil) {
+            compteur = 0
+            ok = true
+        }
+
+        // réécriture
+        if (id == 1) compteurStableR = compteur
+        else if (id == 2) compteurStableV = compteur
+        else if (id == 3) compteurStableB = compteur
+        else if (id == 4) compteurStableJ = compteur
+
+        return ok
+    }
+
+    function approcherId(id: number): void {
+        // approche tant que Y < Y_APPROCHE et que la couleur est encore détectée
+        while (wondercam.XOfColorId(wondercam.Options.Pos_Y, id) < Y_APPROCHE
+            && wondercam.isDetectedColorId(id)) {
+            mettreAJourCamera()
+            mettreAJourCapteursLigne()
+            suiviDeLigne()
+        }
+    }
+
+    // =========================================================
     // INIT
     // =========================================================
 
@@ -70,7 +127,7 @@ namespace msmAIHandler {
     // RÉGLAGES
     // =========================================================
 
-    //% block="régler vitesses | tout droit %vTD | Gcorect %vC | Pcorrect %vP"
+    //% block="régler vitesses | tout droit %vTD | correction %vC | petite %vP"
     //% group="Réglages"
     export function reglerVitesses(vTD: number, vC: number, vP: number): void {
         vitesseToutDroit = vTD
@@ -98,14 +155,14 @@ namespace msmAIHandler {
         PINCE_FERMEE = pf
     }
 
-    //% block="régler Durée | mouvement (ms) %tm | attente (ms) %ta"
+    //% block="régler durée | mouvement (ms) %tm | attente (ms) %ta"
     //% group="Réglages"
     export function reglerTemps(tm: number, ta: number): void {
         TEMPS_MOUVEMENT = tm
         TEMPS_ATTENTE = ta
     }
 
-    //% block="initialiser la mission"
+    //% block="initialiser la mission (ne porte rien)"
     //% group="Réglages"
     export function resetMission(): void {
         modeMission = 0
@@ -113,42 +170,20 @@ namespace msmAIHandler {
     }
 
     // =========================================================
-    // OUTILS INTERNES
-    // =========================================================
-
-    function resetStabilites(): void {
-        compteurStableR = 0
-        compteurStableV = 0
-        compteurStableB = 0
-        compteurStableJ = 0
-    }
-
-    function xDansFenetre(id: number): boolean {
-        const x = wondercam.XOfColorId(wondercam.Options.Pos_X, id)
-        return x >= X_MIN && x <= X_MAX
-    }
-
-    // =========================================================
-    // GETTERS (pour reproduire la boucle des élèves)
+    // GETTERS
     // =========================================================
 
     //% block="ID du cube"
     //% group="Réglages"
-    export function ID_CUBE_get(): number {
-        return ID_CUBE
-    }
+    export function ID_CUBE_get(): number { return ID_CUBE }
 
     //% block="Y d'approche"
     //% group="Réglages"
-    export function Y_APPROCHE_get(): number {
-        return Y_APPROCHE
-    }
+    export function Y_APPROCHE_get(): number { return Y_APPROCHE }
 
     //% block="seuil de validation"
     //% group="Réglages"
-    export function SEUIL_VALIDATION_get(): number {
-        return SEUIL_VALIDATION
-    }
+    export function SEUIL_VALIDATION_get(): number { return SEUIL_VALIDATION }
 
     // =========================================================
     // CAPTEURS LIGNE
@@ -264,161 +299,73 @@ namespace msmAIHandler {
         return wondercam.isDetectedColorId(id)
     }
 
-    //% block="position X de la couleur ID %id"
-    //% group="Vision (couleur)"
-    export function xCube(id: number): number {
-        return wondercam.XOfColorId(wondercam.Options.Pos_X, id)
-    }
-
     //% block="position Y de la couleur ID %id"
     //% group="Vision (couleur)"
     export function yCube(id: number): number {
         return wondercam.XOfColorId(wondercam.Options.Pos_Y, id)
     }
 
-    //% block="Couleur cube"
+    // --- Blocs “collège” : stabilité par couleur (convertible en blocs)
+    //% block="rouge stable ? seuil %seuil"
     //% group="Vision (couleur)"
-    export enum CouleurCube {
-        //% block="rouge"
-        Rouge = 1,
-        //% block="vert"
-        Vert = 2,
-        //% block="bleu"
-        Bleu = 3,
-        //% block="jaune"
-        Jaune = 4
+    export function rougeStable(seuil: number): boolean {
+        return detectionStableId(1, seuil)
     }
 
-    /**
-     * Détection stable 4 couleurs (1 compteur par couleur)
-     */
-
-    //% block="détection stable | %c | seuil %seuil"
+    //% block="vert stable ? seuil %seuil"
     //% group="Vision (couleur)"
-    export function detectionStableCouleur4(c: CouleurCube, seuil: number): boolean {
-        const id = c as number
-        const detecte = wondercam.isDetectedColorId(id)
-
-        let compteur = 0
-        if (c == CouleurCube.Rouge) compteur = compteurStableR
-        else if (c == CouleurCube.Vert) compteur = compteurStableV
-        else if (c == CouleurCube.Bleu) compteur = compteurStableB
-        else compteur = compteurStableJ
-
-        if (detecte && xDansFenetre(id)) {
-            compteur += 1
-        } else {
-            compteur = 0
-        }
-
-        let ok = false
-        if (compteur > seuil) {
-            compteur = 0
-            ok = true
-        }
-
-        if (c == CouleurCube.Rouge) compteurStableR = compteur
-        else if (c == CouleurCube.Vert) compteurStableV = compteur
-        else if (c == CouleurCube.Bleu) compteurStableB = compteur
-        else compteurStableJ = compteur
-
-        return ok
+    export function vertStable(seuil: number): boolean {
+        return detectionStableId(2, seuil)
     }
 
-    /**
-     * NOUVEAU BLOC :
-     * détecte la première couleur stable parmi (rouge, vert, bleu, jaune)
-     * retourne 0 si aucune.
-     */
-
-    //% block="couleur stable détectée ? (seuil %seuil)"
+    //% block="bleu stable ? seuil %seuil"
     //% group="Vision (couleur)"
-    export function couleurStableDetectee(seuil: number): CouleurCube {
-        // ROUGE
-        if (wondercam.isDetectedColorId(1) && xDansFenetre(1)) {
-            compteurStableR += 1
-        } else {
-            compteurStableR = 0
-        }
-        if (compteurStableR > seuil) {
-            resetStabilites()
-            return CouleurCube.Rouge
-        }
-
-        // VERT
-        if (wondercam.isDetectedColorId(2) && xDansFenetre(2)) {
-            compteurStableV += 1
-        } else {
-            compteurStableV = 0
-        }
-        if (compteurStableV > seuil) {
-            resetStabilites()
-            return CouleurCube.Vert
-        }
-
-        // BLEU
-        if (wondercam.isDetectedColorId(3) && xDansFenetre(3)) {
-            compteurStableB += 1
-        } else {
-            compteurStableB = 0
-        }
-        if (compteurStableB > seuil) {
-            resetStabilites()
-            return CouleurCube.Bleu
-        }
-
-        // JAUNE
-        if (wondercam.isDetectedColorId(4) && xDansFenetre(4)) {
-            compteurStableJ += 1
-        } else {
-            compteurStableJ = 0
-        }
-        if (compteurStableJ > seuil) {
-            resetStabilites()
-            return CouleurCube.Jaune
-        }
-
-        return 0
+    export function bleuStable(seuil: number): boolean {
+        return detectionStableId(3, seuil)
     }
 
-    // Compatibilité : ancienne fonction (ID + seuil)
-    //% block="détection stable | couleur ID %id | seuil %seuil"
+    //% block="jaune stable ? seuil %seuil"
     //% group="Vision (couleur)"
-    export function detectionStableCouleur(id: number, seuil: number): boolean {
-        if (id == 1) return detectionStableCouleur4(CouleurCube.Rouge, seuil)
-        if (id == 2) return detectionStableCouleur4(CouleurCube.Vert, seuil)
-        if (id == 3) return detectionStableCouleur4(CouleurCube.Bleu, seuil)
-        if (id == 4) return detectionStableCouleur4(CouleurCube.Jaune, seuil)
-
-        // IDs hors 1..4 : stabilité simple (compteur réutilisé)
-        const detecte = wondercam.isDetectedColorId(id)
-        if (detecte && xDansFenetre(id)) {
-            compteurStableR += 1
-            if (compteurStableR > seuil) {
-                compteurStableR = 0
-                return true
-            }
-        } else {
-            compteurStableR = 0
-        }
-        return false
+    export function jauneStable(seuil: number): boolean {
+        return detectionStableId(4, seuil)
     }
 
+    // --- Blocs “collège” : approcher une couleur (convertible)
+    //% block="approcher le cube rouge"
+    //% group="Vision (couleur)"
+    export function approcherRouge(): void {
+        approcherId(1)
+    }
+
+    //% block="approcher le cube vert"
+    //% group="Vision (couleur)"
+    export function approcherVert(): void {
+        approcherId(2)
+    }
+
+    //% block="approcher le cube bleu"
+    //% group="Vision (couleur)"
+    export function approcherBleu(): void {
+        approcherId(3)
+    }
+
+    //% block="approcher le cube jaune"
+    //% group="Vision (couleur)"
+    export function approcherJaune(): void {
+        approcherId(4)
+    }
+
+    // --- Compatibilité : ancienne détection stable (ID_CUBE)
     //% block="cube détecté de façon stable ?"
     //% group="Vision (couleur)"
     export function cubeDetecteStable(): boolean {
-        return detectionStableCouleur(ID_CUBE, SEUIL_VALIDATION)
+        return detectionStableId(ID_CUBE, SEUIL_VALIDATION)
     }
 
     //% block="approcher le cube (jusqu'à Y d'approche)"
     //% group="Vision (couleur)"
     export function approcherCube(): void {
-        while (wondercam.XOfColorId(wondercam.Options.Pos_Y, ID_CUBE) < Y_APPROCHE
-            && wondercam.isDetectedColorId(ID_CUBE)) {
-            mettreAJourCamera()
-            mettreAJourCapteursLigne()
-            suiviDeLigne()
-        }
+        approcherId(ID_CUBE)
     }
 
     // =========================================================
